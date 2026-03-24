@@ -1,0 +1,166 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{userId}/progress
+    // Document ID: data
+    // Fields:
+    //   - userId: string (required)
+    //   - totalPoints: number (required)
+    //   - level: number (required)
+    //   - tasksCompleted: number
+    //   - wordsLearned: number
+    //   - role: string (student/teacher)
+    //   - lastActivityDate: string (ISO 8601)
+    //
+    // Collection: users/{userId}/stickers
+    // Document ID: auto-generated or stickerId
+    // Fields:
+    //   - id: string
+    //   - emoji: string
+    //   - name: string
+    //   - earnedAt: string
+    //
+    // Collection: users/{userId}/achievements
+    // Document ID: auto-generated or achievementId
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "liorattia@gmail.com" || request.auth.token.email == "liorattia100@gmail.com");
+    }
+
+    function isTeacher() {
+      return isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)/progress/data).data.role == 'teacher');
+    }
+
+    function isValidUserProgress(data) {
+      return data.keys().hasAll(['userId', 'totalPoints', 'level', 'role']) &&
+             data.userId is string &&
+             data.totalPoints is number &&
+             data.level is number &&
+             data.role in ['student', 'teacher'];
+    }
+
+    function isValidSticker(data) {
+      return data.keys().hasAll(['stickerId', 'earnedAt']) &&
+             data.stickerId is string &&
+             data.earnedAt is string;
+    }
+
+    function isValidAchievement(data) {
+      return data.keys().hasAll(['achievementId', 'earnedAt']) &&
+             data.achievementId is string &&
+             data.earnedAt is string;
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['title', 'points', 'assignedTo', 'type', 'content']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.points is number && data.points >= 0 &&
+             data.type is string &&
+             data.assignedTo is list;
+    }
+
+    function isValidGroup(data) {
+      return data.keys().hasAll(['name', 'createdBy', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    function isValidInvite(data) {
+      return data.keys().hasAll(['fullName', 'code', 'pass', 'status']) &&
+             data.fullName is string && data.fullName.size() > 0 &&
+             data.code is string && data.code.size() == 6 &&
+             data.pass is string && data.pass.size() == 6 &&
+             data.status in ['pending', 'registered'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isTeacher();
+      
+      match /progress/data {
+        allow read: if isOwner(userId) || isTeacher();
+        allow create, update: if isOwner(userId) && isValidUserProgress(request.resource.data);
+        allow delete: if isTeacher();
+      }
+
+      match /stickers/{stickerId} {
+        allow read: if isOwner(userId) || isTeacher();
+        allow create, update: if isOwner(userId) && isValidSticker(request.resource.data);
+        allow delete: if isTeacher();
+      }
+
+      match /achievements/{achievementId} {
+        allow read: if isOwner(userId) || isTeacher();
+        allow create, update: if isOwner(userId) && isValidAchievement(request.resource.data);
+        allow delete: if isTeacher();
+      }
+    }
+
+    // Allow collectionGroup queries for progress
+    match /{path=**}/progress/{document} {
+      allow read, delete: if isTeacher();
+    }
+
+    match /student_invites/{inviteId} {
+      // Allow unauthenticated read for registration check
+      allow read: if true; 
+      allow create: if isTeacher() && isValidInvite(request.resource.data);
+      allow update: if (isTeacher() && isValidInvite(request.resource.data)) || 
+                     (true && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'registeredAt', 'userId']));
+      allow delete: if isTeacher();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isTeacher();
+    }
+
+    function isValidAssignment(data) {
+      return data.keys().hasAll(['title', 'description', 'points', 'assignedTo', 'tasks', 'createdBy', 'createdAt', 'status']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string &&
+             data.points is number &&
+             data.assignedTo is list &&
+             data.tasks is list &&
+             data.createdBy is string &&
+             data.createdAt is string &&
+             data.status in ['draft', 'published'];
+    }
+
+    match /assignments/{assignmentId} {
+      allow read: if isTeacher() || (isAuthenticated() && resource.data.status == 'published');
+      allow create, update, delete: if isTeacher() && isValidAssignment(request.resource.data);
+    }
+
+    match /groups/{groupId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isTeacher() && isValidGroup(request.resource.data);
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

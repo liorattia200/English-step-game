@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "UserProgress": {
+      "title": "User Progress",
+      "description": "Tracks the learning progress of a student or teacher.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The unique ID of the user." },
+        "totalPoints": { "type": "integer", "description": "Total points earned." },
+        "level": { "type": "integer", "description": "Current level." },
+        "tasksCompleted": { "type": "integer", "description": "Number of tasks completed." },
+        "wordsLearned": { "type": "integer", "description": "Number of words learned." },
+        "role": { "type": "string", "enum": ["student", "teacher"], "description": "User role." },
+        "lastActivityDate": { "type": "string", "format": "date-time", "description": "Last activity timestamp." },
+        "completedAssignmentIds": { "type": "array", "items": { "type": "string" }, "description": "List of completed assignment IDs." }
+      },
+      "required": ["userId", "totalPoints", "level", "role"]
+    },
+    "Sticker": {
+      "title": "Sticker",
+      "description": "A sticker earned by the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "emoji": { "type": "string" },
+        "name": { "type": "string" },
+        "earnedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "emoji", "name"]
+    },
+    "Achievement": {
+      "title": "Achievement",
+      "description": "An achievement unlocked by the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "unlockedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title"]
+    },
+    "StudentInvite": {
+      "title": "Student Invite",
+      "description": "An invitation for a student to join the app.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "group": { "type": "string" },
+        "code": { "type": "string" },
+        "pass": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "registered"] },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullName", "code", "pass", "status"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A single task within an assignment.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string" },
+        "points": { "type": "integer" },
+        "content": { "type": "object" }
+      },
+      "required": ["title", "type", "content"]
+    },
+    "Assignment": {
+      "title": "Assignment",
+      "description": "An assignment containing multiple tasks, assigned by a teacher.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "tasks": { 
+          "type": "array", 
+          "items": { "$ref": "#/entities/Task" } 
+        },
+        "points": { "type": "integer" },
+        "assignedTo": { "type": "array", "items": { "type": "string" } },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["draft", "published"], "description": "The current status of the assignment." },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "points", "assignedTo", "tasks"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "A group of students.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "createdBy", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}/progress/data": {
+      "schema": "UserProgress",
+      "description": "Main progress document for a user."
+    },
+    "users/{userId}/stickers": {
+      "schema": "Sticker",
+      "description": "Collection of stickers earned by the user."
+    },
+    "users/{userId}/achievements": {
+      "schema": "Achievement",
+      "description": "Collection of achievements unlocked by the user."
+    },
+    "student_invites": {
+      "schema": "StudentInvite",
+      "description": "Collection of student invitations."
+    },
+    "assignments": {
+      "schema": "Assignment",
+      "description": "Collection of assignments created by teachers."
+    },
+    "groups": {
+      "schema": "Group",
+      "description": "Collection of student groups."
+    }
+  }
+}
